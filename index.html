@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MC Command Helper</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #1c1c1c; color: white; padding: 20px; display: flex; flex-direction: column; height: 90vh; }
+        
+        input { 
+            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; 
+            background: #333; color: white; font-size: 16px; outline: none; box-sizing: border-box; 
+        }
+
+        .suggestions { 
+            margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; flex-grow: 1; align-content: flex-start;
+        }
+
+        .hint { 
+            background: #444; padding: 8px 12px; border-radius: 20px; cursor: pointer; 
+            font-size: 14px; transition: 0.2s; border: 1px solid #555;
+        }
+        .hint:hover { background: #666; }
+
+        .button-group {
+            display: flex; gap: 10px; margin-top: 20px;
+        }
+
+        button {
+            flex: 1; padding: 14px; border: none; border-radius: 8px; 
+            color: white; font-weight: bold; cursor: pointer; font-size: 14px;
+        }
+
+        .btn-send { background: #0088cc; }
+        .btn-send:active { background: #006699; }
+
+        .btn-copy { background: #4caf50; }
+        .btn-copy:active { background: #388e3c; }
+    </style>
+</head>
+<body>
+
+    <input type="text" id="commandInput" placeholder="Введите команду..." autocomplete="off">
+    
+    <div class="suggestions" id="suggestions"></div>
+    
+    <div class="button-group">
+        <button class="btn-copy" id="copyBtn">Копировать</button>
+        <button class="btn-send" id="sendBtn">Отправить боту</button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        const input = document.getElementById('commandInput');
+        const suggestBox = document.getElementById('suggestions');
+        const sendBtn = document.getElementById('sendBtn');
+        const copyBtn = document.getElementById('copyBtn');
+
+        // ДЕРЕВО КОМАНД (Редактируй под себя)
+        const commandTree = {
+            "/paper": {
+                "version": {
+                    "1.20.1": {}, "1.19.4": {}, "1.18.2": {}, "1.16.5": {}
+                },
+                "build": { "latest": {} },
+                "list": {}
+            },
+            "/stop": {},
+                      "/info": {}
+        };
+
+        input.addEventListener('input', updateSuggestions);
+
+        function updateSuggestions() {
+            const val = input.value;
+            const args = val.split(' ').filter(x => x !== "");
+            suggestBox.innerHTML = '';
+
+            let currentLevel = commandTree;
+            
+            for (let i = 0; i < args.length; i++) {
+                const arg = args[i];
+                if (currentLevel[arg]) {
+                    currentLevel = currentLevel[arg];
+                } else if (i < args.length - 1) {
+                    currentLevel = {}; 
+                }
+            }
+
+            const options = Object.keys(currentLevel);
+            const lastWord = val.endsWith(' ') ? '' : args[args.length - 1] || '';
+
+            options.forEach(opt => {
+                if (opt.startsWith(lastWord)) {
+                    const el = document.createElement('div');
+                    el.className = 'hint';
+                    el.innerText = opt;
+                    el.onclick = () => applyHint(opt);
+                    suggestBox.appendChild(el);
+                }
+            });
+        }
+
+        function applyHint(text) {
+            const val = input.value;
+            const lastSpace = val.lastIndexOf(' ');
+            
+            if (lastSpace === -1) {
+                input.value = text; 
+            } else {
+                // Заменяем последнее вводимое слово на подсказку (БЕЗ ПРОБЕЛА в конце)
+                input.value = val.substring(0, lastSpace) + " " + text;
+            }
+            updateSuggestions();
+            input.focus();
+        }
+
+        // КНОПКА ОТПРАВИТЬ (Закрывает приложение и шлет текст боту)
+        sendBtn.onclick = () => {
+            if(input.value) {
+                tg.sendData(input.value);
+            }
+        };
+
+        // КНОПКА КОПИРОВАТЬ
+        copyBtn.onclick = () => {
+            const textToCopy = input.value;
+            if (textToCopy) {
+                // Копируем в буфер обмена
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    // Очищаем поле
+                    input.value = "";
+                    // Обновляем список подсказок (вернется в начало)
+                    updateSuggestions();
+                    
+                    // Визуальный эффект на кнопке (опционально)
+                    const oldText = copyBtn.innerText;
+                    copyBtn.innerText = "Скопировано!";
+                    copyBtn.style.background = "#2e7d32";
+                    setTimeout(() => {
+                        copyBtn.innerText = oldText;
+                        copyBtn.style.background = "#4caf50";
+                    }, 1000);
+                }).catch(err => {
+                    alert('Ошибка копирования: ' + err);
+                });
+            }
+        };
+    </script>
+</body>
+</html>
