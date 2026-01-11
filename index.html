@@ -1,53 +1,45 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MC Command Helper</title>
+    <title>MC Command Helper 1.21</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { font-family: sans-serif; background: #1c1c1c; color: white; padding: 20px; display: flex; flex-direction: column; height: 90vh; }
-        
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #121212; color: #e0e0e0; padding: 15px; display: flex; flex-direction: column; height: 100vh; margin: 0; box-sizing: border-box; }
+        #input-container { position: sticky; top: 0; background: #121212; padding-bottom: 10px; z-index: 10; }
         input { 
-            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; 
-            background: #333; color: white; font-size: 16px; outline: none; box-sizing: border-box; 
+            width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #333; 
+            background: #1e1e1e; color: #fff; font-size: 16px; outline: none; box-sizing: border-box;
         }
-
         .suggestions { 
-            margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; flex-grow: 1; align-content: flex-start;
+            margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; overflow-y: auto; flex-grow: 1; align-content: flex-start;
         }
-
         .hint { 
-            background: #444; padding: 8px 12px; border-radius: 20px; cursor: pointer; 
-            font-size: 14px; transition: 0.2s; border: 1px solid #555;
+            background: #2c2c2c; padding: 8px 14px; border-radius: 8px; cursor: pointer; 
+            font-size: 13px; border: 1px solid #3d3d3d; color: #bbb;
         }
-        .hint:hover { background: #666; }
-
-        .button-group {
-            display: flex; gap: 10px; margin-top: 20px;
-        }
-
-        button {
-            flex: 1; padding: 14px; border: none; border-radius: 8px; 
-            color: white; font-weight: bold; cursor: pointer; font-size: 14px;
-        }
-
+        .hint:hover { background: #3d3d3d; color: #fff; border-color: #0088cc; }
+        .keyword { color: #569cd6; font-weight: bold; }
+        .selector { color: #ce9178; }
+        .entity { color: #4ec9b0; }
+        .button-group { display: flex; gap: 10px; margin-top: 15px; padding-bottom: 10px; }
+        button { flex: 1; padding: 14px; border: none; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; }
         .btn-send { background: #0088cc; }
-        .btn-send:active { background: #006699; }
-
-        .btn-copy { background: #4caf50; }
-        .btn-copy:active { background: #388e3c; }
+        .btn-copy { background: #388e3c; }
     </style>
 </head>
 <body>
 
-    <input type="text" id="commandInput" placeholder="Введите команду..." autocomplete="off">
+    <div id="input-container">
+        <input type="text" id="commandInput" placeholder="Введите /..." autocomplete="off">
+    </div>
     
     <div class="suggestions" id="suggestions"></div>
     
     <div class="button-group">
         <button class="btn-copy" id="copyBtn">Копировать</button>
-        <button class="btn-send" id="sendBtn">Отправить боту</button>
+        <button class="btn-send" id="sendBtn">Отправить</button>
     </div>
 
     <script>
@@ -56,105 +48,139 @@
 
         const input = document.getElementById('commandInput');
         const suggestBox = document.getElementById('suggestions');
-        const sendBtn = document.getElementById('sendBtn');
-        const copyBtn = document.getElementById('copyBtn');
 
-        const commandTree = {
-            "/kill": {
-                "@a": {},
-                "@e": {},
-                "@r": {},
-                "@s": {},
-                "@p": {},
-                "player": {}
-            },
-            "/tp": {
-                "@a": {"@r": {}, "@s": {}, "@p": {},"player": {}},
-                "@e": {"@r": {}, "@s": {}, "@p": {},"player": {}},
-                "@r": {"@r": {}, "@s": {}, "@p": {},"player": {}},
-                "@s": {"@r": {}, "@s": {}, "@p": {},"player": {}},
-                "@p": {"@r": {}, "@s": {}, "@p": {},"player": {}},
-                "player": {"@r": {}, "@s": {}, "@p": {},"player": {}}
+        const SELECTORS = ["@a", "@e", "@p", "@r", "@s"];
+                const ENTITIES = ["breeze", "bogged", "armadillo", "allay", "zombie", "skeleton", "creeper", "spider", "enderman", "warden", "iron_golem", "item_display", "interaction"];
+        const EFFECTS = ["speed", "slowness", "haste", "strength", "instant_health", "jump_boost", "regeneration", "resistance", "fire_resistance", "invisibility", "night_vision", "poison", "wither", "trial_omen", "raid_omen", "wind_charged", "weaving", "oozing", "infested"];
+        const ITEMS = ["diamond", "netherite_ingot", "trial_key", "mace", "heavy_core", "stick", "iron_ingot"];
+        
+        const EXECUTE_SUB = ["as", "at", "if", "unless", "positioned", "rotated", "facing", "align", "anchored", "in", "on", "summon", "run"];
+        const EXECUTE_IF_TYPES = ["block", "blocks", "entity", "score", "predicate"];
+
+        function getSuggestions(val) {
+            const args = val.trimStart().split(/\s+/);
+            const lastArg = args[args.length - 1];
+            const isSpaceAtEnd = val.endsWith(' ');
+
+            // Если поле пустое
+            if (val.trim() === "" && !isSpaceAtEnd) return ["/execute", "/summon", "/effect", "/give", "/kill", "/tp"];
+
+            // Текущая команда (первое слово)
+            let cmd = args[0];
+
+            // Логика /summon
+            if (cmd === "/summon") {
+                if (args.length === 1 || (args.length === 2 && !isSpaceAtEnd)) return ENTITIES;
+                return ["~ ~ ~"];
             }
-        };
 
-        input.addEventListener('input', updateSuggestions);
+            // Логика /kill
+            if (cmd === "/kill") {
+                if (args.length === 1 || (args.length === 2 && !isSpaceAtEnd)) return SELECTORS;
+                return [];
+            }
+
+            // Логика /give
+            if (cmd === "/give") {
+                if (args.length === 1 || (args.length === 2 && !isSpaceAtEnd)) return SELECTORS;
+                if (args.length === 2 || (args.length === 3 && !isSpaceAtEnd)) return ITEMS;
+                return ["1"];
+            }
+
+            // Логика /effect
+            if (cmd === "/effect") {
+                if (args.length === 1 || (args.length === 2 && !isSpaceAtEnd)) return ["give", "clear"];
+                if (args.length === 2 || (args.length === 3 && !isSpaceAtEnd)) return SELECTORS;
+                                if (args.length === 3 || (args.length === 4 && !isSpaceAtEnd)) return EFFECTS;
+                return ["30", "infinite"];
+            }
+
+            // Сложная логика /execute
+            if (cmd === "/execute") {
+                // Если мы встретили "run", рекурсивно вызываем подсказки для новой команды
+                const runIndex = args.indexOf("run");
+                if (runIndex !== -1) {
+                    if (isSpaceAtEnd && args.length === runIndex + 1) return ["/tp", "/summon", "/effect", "/give", "/kill"];
+                    const subArgs = args.slice(runIndex + 1);
+                    // Эмуляция ввода после run
+                    return getSuggestions(subArgs.join(" ") + (isSpaceAtEnd ? " " : ""));
+                }
+
+                const prev = args[args.length - (isSpaceAtEnd ? 1 : 2)];
+
+                // Что предлагать после ключевых слов
+                if (["as", "at", "facing", "on"].includes(prev)) return SELECTORS;
+                if (["if", "unless"].includes(prev)) return EXECUTE_IF_TYPES;
+                if (prev === "entity") return SELECTORS;
+                if (prev === "summon") return ENTITIES;
+                if (prev === "in") return ["minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"];
+                if (prev === "positioned") return ["as", "over", "~ ~ ~"];
+
+                // Если последний аргумент — селектор или значение, предлагаем следующий кусок execute
+                return EXECUTE_SUB;
+            }
+
+            // Логика /tp
+            if (cmd === "/tp") {
+                return SELECTORS;
+            }
+
+            return [];
+        }
 
         function updateSuggestions() {
             const val = input.value;
-            const args = val.split(' ').filter(x => x !== "");
-            suggestBox.innerHTML = '';
-
-            let currentLevel = commandTree;
+            const args = val.trimStart().split(/\s+/);
+            const lastWord = val.endsWith(' ') ? '' : args[args.length - 1];
             
-            for (let i = 0; i < args.length; i++) {
-                const arg = args[i];
-                if (currentLevel[arg]) {
-                    currentLevel = currentLevel[arg];
-                } else if (i < args.length - 1) {
-                    currentLevel = {}; 
-                }
-            }
+            let options = getSuggestions(val);
+            
+            // Фильтруем по тому, что уже начал писать пользователь
+            const filtered = options.filter(opt => opt.toLowerCase().startsWith(lastWord.toLowerCase()));
 
-            const options = Object.keys(currentLevel);
-            const lastWord = val.endsWith(' ') ? '' : args[args.length - 1] || '';
+            suggestBox.innerHTML = '';
+            filtered.forEach(opt => {
+                const el = document.createElement('div');
+                el.className = 'hint';
+                
+                // Красивая подсветка типов
+                if (opt.startsWith('/')) el.classList.add('keyword');
+                else if (SELECTORS.includes(opt)) el.classList.add('selector');
+                else if (ENTITIES.includes(opt)) el.classList.add('entity');
+                else if (EXECUTE_SUB.includes(opt)) el.classList.add('keyword');
 
-            options.forEach(opt => {
-                if (opt.startsWith(lastWord)) {
-                    const el = document.createElement('div');
-                    el.className = 'hint';
-                    el.innerText = opt;
-                    el.onclick = () => applyHint(opt);
-                    suggestBox.appendChild(el);
-                }
+                el.innerText = opt;
+                el.onclick = () => {
+                    if (val.endsWith(' ') || val === "") {
+                        input.value += opt + " ";
+                    } else {
+                        const lastSpace = val.lastIndexOf(' ');
+                        input.value = val.substring(0, lastSpace + 1) + opt + " ";
+                    }
+                    updateSuggestions();
+                    input.focus();
+                };
+                suggestBox.appendChild(el);
             });
         }
 
-        function applyHint(text) {
-            const val = input.value;
-            const lastSpace = val.lastIndexOf(' ');
-            
-            if (lastSpace === -1) {
-                input.value = text; 
-            } else {
-                // Заменяем последнее вводимое слово на подсказку (БЕЗ ПРОБЕЛА в конце)
-                input.value = val.substring(0, lastSpace) + " " + text;
-            }
-            updateSuggestions();
-            input.focus();
-        }
+        input.addEventListener('input', updateSuggestions);
 
-        // КНОПКА ОТПРАВИТЬ (Закрывает приложение и шлет текст боту)
-        sendBtn.onclick = () => {
-            if(input.value) {
-                tg.sendData(input.value);
-            }
-        };
-
-        // КНОПКА КОПИРОВАТЬ
         copyBtn.onclick = () => {
-            const textToCopy = input.value;
-            if (textToCopy) {
-                // Копируем в буфер обмена
-                navigator.clipboard.writeText(textToCopy).then(() => {
-                    // Очищаем поле
-                    input.value = "";
-                    // Обновляем список подсказок (вернется в начало)
-                    updateSuggestions();
-                    
-                    // Визуальный эффект на кнопке (опционально)
-                    const oldText = copyBtn.innerText;
-                    copyBtn.innerText = "Скопировано!";
-                    copyBtn.style.background = "#2e7d32";
-                    setTimeout(() => {
-                        copyBtn.innerText = oldText;
-                        copyBtn.style.background = "#4caf50";
-                    }, 1000);
-                }).catch(err => {
-                    alert('Ошибка копирования: ' + err);
-                });
+            if (input.value) {
+                navigator.clipboard.writeText(input.value.trim());
+                const old = copyBtn.innerText;
+                copyBtn.innerText = "Скопировано!";
+                setTimeout(() => copyBtn.innerText = old, 1000);
             }
         };
+
+        sendBtn.onclick = () => {
+            if (input.value) tg.sendData(input.value.trim());
+        };
+
+        // Инициализация
+        updateSuggestions();
     </script>
 </body>
 </html>
