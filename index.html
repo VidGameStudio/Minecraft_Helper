@@ -59,17 +59,23 @@
         const sendBtn = document.getElementById('sendBtn');
         const copyBtn = document.getElementById('copyBtn');
 
-        // ДЕРЕВО КОМАНД (Редактируй под себя)
         const commandTree = {
-            "/paper": {
-                "version": {
-                    "1.20.1": {}, "1.19.4": {}, "1.18.2": {}, "1.16.5": {}
-                },
-                "build": { "latest": {} },
-                "list": {}
+            "/kill": {
+                "@a": {},
+                "@e": {},
+                "@r": {},
+                "@s": {},
+                "@p": {},
+                "player": {}
             },
-            "/stop": {},
-                      "/info": {}
+            "/tp": {
+                "@a": {"@r": {}, "@s": {}, "@p": {},"player": {}},
+                "@e": {"@r": {}, "@s": {}, "@p": {},"player": {}},
+                "@r": {"@r": {}, "@s": {}, "@p": {},"player": {}},
+                "@s": {"@r": {}, "@s": {}, "@p": {},"player": {}},
+                "@p": {"@r": {}, "@s": {}, "@p": {},"player": {}},
+                "player": {"@r": {}, "@s": {}, "@p": {},"player": {}}
+            }
         };
 
         input.addEventListener('input', updateSuggestions);
